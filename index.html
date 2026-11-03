@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Atelier Grasshopper</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout : leçons à gauche, canevas nodal au centre, vue de dessus façon Rhino à droite */
+:root{
+  --bg:#eceee9; --surface:#f7f8f5; --ink:#1c211b; --muted:#596155; --line:#cdd2c8;
+  --accent:#3d7a1d; --accent-ink:#ffffff;
+  --canvas:#d2d5ce; --canvas-line:#c3c7bf; --wire:#20251f;
+  --node:#e7e8e3; --node-edge:#272b25; --node-core:#cdd0c8;
+  --warn:#c9741f; --warn-bg:#f1c48f; --err:#b9302a; --err-bg:#ee9d95;
+  --panel:#f4e79a; --sel:#2c9a39;
+  --view:#e2e4df; --view-line:#cbcfc7; --view-line2:#b8bdb3; --geo:#b0241c; --axis-x:#c8473f; --axis-y:#3f9a46;
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#141714; --surface:#1c201c; --ink:#e5e9e1; --muted:#9ba495; --line:#323831;
+  --accent:#86c95a; --accent-ink:#10140e;
+  --canvas:#2b302c; --canvas-line:#343a35; --wire:#d6dbd1;
+  --node:#454b46; --node-edge:#0c0e0c; --node-core:#3a403b;
+  --warn:#e39a4c; --warn-bg:#7a4c1b; --err:#ff7a6e; --err-bg:#7c2a24;
+  --panel:#5e5622; --sel:#73dc6c;
+  --view:#222622; --view-line:#2d322d; --view-line2:#3a403a; --geo:#ff6a5c; --axis-x:#e0665d; --axis-y:#69c26f;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#141714; --surface:#1c201c; --ink:#e5e9e1; --muted:#9ba495; --line:#323831;
+  --accent:#86c95a; --accent-ink:#10140e;
+  --canvas:#2b302c; --canvas-line:#343a35; --wire:#d6dbd1;
+  --node:#454b46; --node-edge:#0c0e0c; --node-core:#3a403b;
+  --warn:#e39a4c; --warn-bg:#7a4c1b; --err:#ff7a6e; --err-bg:#7c2a24;
+  --panel:#5e5622; --sel:#73dc6c;
+  --view:#222622; --view-line:#2d322d; --view-line2:#3a403a; --geo:#ff6a5c; --axis-x:#e0665d; --axis-y:#69c26f;
+  color-scheme:dark }
+html,body{height:100%}
+body{background:var(--bg); color:var(--ink); font-family:var(--f-body); font-size:15px; line-height:1.5}
+*{box-sizing:border-box}
+button{font:inherit; color:inherit}
+.app{display:grid; gap:14px; grid-template-columns:minmax(0,1fr);
+  grid-template-areas:"top" "lesson" "editor" "view";
+  padding-block:14px 24px; padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px))}
+@media (min-width:1100px){
+  .app{grid-template-columns:300px minmax(0,1fr) 340px; grid-template-areas:"top top top" "lesson editor view"}
+  .lesson,.editor,.viewport{height:max(560px, calc(100vh - 120px))}
+  .lesson{overflow:auto}
+}
+.top{grid-area:top; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px}
+.brand h1{font-family:var(--f-display); font-weight:700; font-size:1.55rem; letter-spacing:-.01em; margin:0; line-height:1.1; text-wrap:balance}
+.brand p{margin:2px 0 0; color:var(--muted); font-size:.92rem}
+.steps{display:flex; gap:6px; flex-wrap:wrap}
+.steps button{width:34px; height:34px; border-radius:50%; border:1.5px solid var(--line); background:var(--surface); font-family:var(--f-mono); font-size:.85rem; cursor:pointer}
+.steps button.done{border-color:var(--accent)}
+.steps button.on{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+.steps button:focus-visible,.btn:focus-visible,.pal button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+.lesson{grid-area:lesson; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:18px 18px 16px; min-width:0}
+.kicker{font-family:var(--f-mono); font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 4px}
+.lesson h2{font-family:var(--f-display); font-size:1.3rem; font-weight:700; margin:0 0 10px; line-height:1.2; text-wrap:balance}
+.lesson p{margin:0 0 10px; max-width:65ch}
+.lesson b.c{font-family:var(--f-mono); font-size:.86em; font-weight:600; background:var(--canvas); padding:1px 5px; border-radius:4px; white-space:nowrap}
+.try{border-top:1px solid var(--line); margin-top:14px; padding-top:12px}
+.try h3{font-family:var(--f-mono); font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; margin:0 0 6px; color:var(--accent)}
+.try ul{margin:0; padding-left:18px; display:grid; gap:6px}
+.lnav{display:flex; gap:8px; flex-wrap:wrap; margin-top:16px}
+.btn{border:1.5px solid var(--line); background:var(--bg); border-radius:7px; padding:6px 12px; cursor:pointer; font-weight:600; font-size:.9rem}
+.btn.pri{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+.btn:disabled{opacity:.4; cursor:default}
+.states{display:grid; gap:4px; margin:8px 0 10px; font-size:.9rem}
+.states span{display:inline-block; width:14px; height:14px; border-radius:3px; border:1.5px solid var(--node-edge); vertical-align:-2px; margin-right:6px}
+
+.editor{grid-area:editor; display:flex; flex-direction:column; min-width:0; height:560px; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--surface)}
+.pal{display:flex; gap:14px; overflow-x:auto; padding:8px 10px; border-bottom:1px solid var(--line); flex-shrink:0}
+.pg{display:flex; align-items:center; gap:4px; flex-shrink:0}
+.pg>span{font-family:var(--f-mono); font-size:.66rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-right:2px}
+.pal button{border:1px solid var(--line); background:var(--bg); border-radius:5px; padding:3px 8px; font-family:var(--f-mono); font-size:.76rem; cursor:pointer; white-space:nowrap}
+.pal button:hover{border-color:var(--accent)}
+.scroller{flex:1; overflow:auto; position:relative; background:var(--canvas)}
+.board{position:relative; width:1500px; height:900px; user-select:none; -webkit-user-select:none;
+  background-image:linear-gradient(var(--canvas-line) 1px, transparent 1px),linear-gradient(90deg,var(--canvas-line) 1px, transparent 1px);
+  background-size:30px 30px}
+#wires{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible}
+.wire path{fill:none}
+.wire .hit{stroke:transparent; stroke-width:14; pointer-events:stroke; cursor:pointer}
+.wire .w1{stroke:var(--wire); stroke-width:1.6}
+.wire .w2{stroke:var(--wire); stroke-width:5.5}
+.wire .w3{stroke:var(--canvas); stroke-width:2}
+.wire.empty .w1{stroke:var(--warn); stroke-dasharray:5 4}
+.wire.sel .w1,.wire.sel .w2{stroke:var(--sel)}
+.wire:hover .w1,.wire:hover .w2{stroke:var(--err)}
+.tmp{fill:none; stroke:var(--wire); stroke-width:1.6; stroke-dasharray:6 4}
+.status{display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 14px; padding:6px 10px; border-top:1px solid var(--line); font-family:var(--f-mono); font-size:.72rem; color:var(--muted); font-variant-numeric:tabular-nums; flex-shrink:0}
+.status svg{vertical-align:middle; margin:0 4px 0 8px}
+
+.node{position:absolute; display:flex; align-items:stretch; background:var(--node); border:1.5px solid var(--node-edge); border-radius:6px; font-family:var(--f-mono); font-size:12px; color:var(--ink); touch-action:none; cursor:grab; box-shadow:0 2px 0 rgba(0,0,0,.18); z-index:1}
+.node.warn{background:var(--warn-bg)}
+.node.err{background:var(--err-bg)}
+.node.sel{border-color:var(--sel); box-shadow:0 0 0 2px var(--sel)}
+.ins,.outs{display:flex; flex-direction:column; justify-content:center; gap:3px; padding:6px 0}
+.prow{position:relative; height:20px; display:flex; align-items:center; padding:0 9px}
+.outs .prow{justify-content:flex-end}
+.core{writing-mode:vertical-rl; transform:rotate(180deg); background:var(--node-core); display:flex; align-items:center; justify-content:center; padding:8px 3px; font-weight:600; letter-spacing:.04em; border-left:1px solid var(--node-edge); border-right:1px solid var(--node-edge)}
+.port{position:absolute; top:50%; width:11px; height:11px; margin-top:-5.5px; border-radius:50%; background:var(--node); border:1.5px solid var(--node-edge); cursor:crosshair; touch-action:none; z-index:2}
+.port::after{content:""; position:absolute; inset:-9px}
+.port.in{left:-7px} .port.out{right:-7px}
+.port:hover{background:var(--accent)}
+.t-slider{align-items:center; gap:6px; padding:6px 14px 6px 9px; flex-wrap:wrap; width:250px}
+.t-slider .slabel{font-weight:600; min-width:0; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.t-slider input[type=range]{flex:1; min-width:60px; accent-color:var(--accent)}
+.t-slider output{min-width:40px; text-align:right; font-variant-numeric:tabular-nums; background:var(--surface); border:1px solid var(--line); border-radius:3px; padding:0 4px}
+.sopt{border:0; background:none; cursor:pointer; padding:0 2px; font-size:14px; line-height:1}
+.srange{display:flex; gap:6px; width:100%; font-size:11px; color:var(--muted)}
+.srange label{display:flex; gap:3px; align-items:center}
+.srange input{width:48px; font:inherit; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:3px; padding:1px 3px}
+.t-panel{background:var(--panel); width:170px; flex-direction:column; padding:6px 8px 6px 10px}
+.t-panel.warn{background:var(--warn-bg)}
+.t-panel .ptitle{font-size:10px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase}
+.pdata{margin:2px 0 0; font:inherit; max-height:150px; overflow:auto; white-space:pre; cursor:text; font-variant-numeric:tabular-nums}
+.del{position:absolute; top:-10px; right:-10px; width:20px; height:20px; border-radius:50%; border:1.5px solid var(--node-edge); background:var(--surface); font-size:12px; line-height:1; cursor:pointer; display:none; z-index:3; padding:0}
+.node:hover .del,.node.sel .del{display:block}
+.balloon{position:absolute; left:0; top:calc(100% + 6px); width:max-content; max-width:230px; white-space:normal; font-family:var(--f-body); font-size:12px; line-height:1.3; background:var(--surface); border:1.5px solid var(--warn); border-radius:6px; padding:4px 7px; display:none; pointer-events:none}
+.node.warn .balloon,.node.err .balloon{display:block}
+.node.err .balloon{border-color:var(--err)}
+
+.viewport{grid-area:view; display:flex; flex-direction:column; min-width:0; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--surface)}
+.vp-head{display:flex; justify-content:space-between; gap:8px; padding:6px 10px; font-family:var(--f-mono); font-size:.72rem; color:var(--muted); border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums}
+.vp-head b{color:var(--ink)}
+.vpbox{flex:1; min-height:300px; position:relative}
+#view{position:absolute; inset:0; width:100%; height:100%; display:block}
+.legend{padding:8px 10px; font-size:.82rem; color:var(--muted); border-top:1px solid var(--line); display:flex; flex-wrap:wrap; gap:4px 14px}
+.legend i{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px}
+
+.tip{position:fixed; z-index:20; max-width:260px; background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font-size:12px; line-height:1.35; box-shadow:0 6px 20px rgba(0,0,0,.18); pointer-events:none}
+.tip b{font-family:var(--f-mono)}
+.tip code{font-family:var(--f-mono); font-size:11px; color:var(--muted); white-space:pre-wrap; display:block; margin-top:3px}
+.search{position:fixed; z-index:30; width:250px; background:var(--surface); border:1.5px solid var(--node-edge); border-radius:8px; padding:6px; box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.search input{width:100%; font:inherit; font-family:var(--f-mono); font-size:13px; padding:5px 7px; border:1px solid var(--line); border-radius:5px; background:var(--bg); color:var(--ink)}
+.search ul{list-style:none; margin:4px 0 0; padding:0; max-height:220px; overflow:auto}
+.search li{padding:4px 7px; border-radius:4px; cursor:pointer; font-size:13px; display:flex; justify-content:space-between; gap:8px}
+.search li small{color:var(--muted); font-family:var(--f-mono); font-size:11px}
+.search li:hover,.search li.on{background:var(--canvas)}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Atelier Grasshopper</h1>
+      <p>Les principes de la programmation visuelle, en manipulant de vrais composants.</p>
+    </div>
+    <nav class="steps" id="steps" aria-label="Leçons"></nav>
+  </header>
+
+  <aside class="lesson" id="lesson"></aside>
+
+  <section class="editor" aria-label="Canevas">
+    <div class="pal" id="pal"></div>
+    <div class="scroller" id="scroller"><div class="board" id="board"><svg id="wires"></svg></div></div>
+    <div class="status"><span id="stat"></span><span>
+      <svg width="26" height="8"><path d="M1 4H25" stroke="currentColor" stroke-width="1.6"/></svg>valeur
+      <svg width="26" height="8"><path d="M1 4H25" stroke="currentColor" stroke-width="5"/><path d="M1 4H25" stroke="var(--surface)" stroke-width="1.8"/></svg>liste
+      <svg width="26" height="8"><path d="M1 4H25" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="4 3"/></svg>vide
+    </span></div>
+  </section>
+
+  <section class="viewport" aria-label="Aperçu">
+    <div class="vp-head"><b>Top</b><span id="vpinfo"></span></div>
+    <div class="vpbox"><canvas id="view"></canvas></div>
+    <div class="legend"><span><i style="background:var(--geo)"></i>géométrie prévisualisée</span><span><i style="background:var(--sel)"></i>composant sélectionné</span><span><i style="background:var(--axis-x)"></i>X</span><span><i style="background:var(--axis-y)"></i>Y</span></div>
+  </section>
+</div>
+<div class="tip" id="tip" hidden></div>
+<div class="search" id="search" hidden><input id="q" autocomplete="off" placeholder="Rechercher un composant…"><ul id="qres"></ul></div>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const board=$('#board'), svg=$('#wires'), scroller=$('#scroller'), tip=$('#tip');
+let G={nodes:[],wires:[]}, results={}, selected=null, nextId=1, drag=null;
+const els={};
+
+/* ---------- Types de données ---------- */
+const isNum=v=>typeof v==='number'&&isFinite(v);
+const P=(x,y,z)=>({t:'pt',x,y,z});
+const O=P(0,0,0);
+function num(v,n){ if(v==null) throw new Error(`${n} est vide (null)`); if(!isNum(v)) throw new Error(`${n} doit être un nombre`); return v }
+function pnt(v,n){ if(!v||v.t!=='pt') throw new Error(`${n} doit être un point`); return v }
+function vec(v,n){ if(!v||(v.t!=='vec'&&v.t!=='pt')) throw new Error(`${n} doit être un vecteur`); return v }
+function shift(g,t){
+  if(!g) throw new Error('G est vide (null)');
+  if(g.t==='pt') return P(g.x+t.x,g.y+t.y,g.z+t.z);
+  if(g.t==='cir') return {t:'cir',c:shift(g.c,t),r:g.r};
+  if(g.t==='ln') return {t:'ln',a:shift(g.a,t),b:shift(g.b,t)};
+  throw new Error('G doit être une géométrie');
+}
+
+/* ---------- Composants ---------- */
+const DEFS={
+  slider:{cat:'Params',name:'Number Slider',nick:'Slider',kw:'curseur nombre',ins:[],outs:[{n:'N',d:'Valeur du curseur'}]},
+  panel:{cat:'Params',name:'Panel',nick:'Panel',kw:'afficher texte',ins:[{n:'',d:'Données à afficher'}],outs:[]},
+  add:{cat:'Maths',name:'Addition',nick:'A+B',kw:'additionner plus',ins:[{n:'A',d:'Premier nombre'},{n:'B',d:'Second nombre'}],outs:[{n:'R',d:'A + B'}],fn:(a,b)=>num(a,'A')+num(b,'B')},
+  mul:{cat:'Maths',name:'Multiplication',nick:'A×B',kw:'multiplier fois',ins:[{n:'A',d:'Premier nombre'},{n:'B',d:'Second nombre'}],outs:[{n:'R',d:'A × B'}],fn:(a,b)=>num(a,'A')*num(b,'B')},
+  sin:{cat:'Maths',name:'Sine',nick:'Sin',kw:'sinus trigonométrie',ins:[{n:'x',d:'Angle en radians'}],outs:[{n:'y',d:'sin(x)'}],fn:x=>Math.sin(num(x,'x'))},
+  series:{cat:'Sets',name:'Series',nick:'Series',kw:'série suite liste',ins:[{n:'S',d:'Premier nombre',def:0},{n:'N',d:'Pas entre deux valeurs',def:1},{n:'C',d:'Nombre de valeurs',def:10}],outs:[{n:'S',d:'Liste de nombres'}],
+    list:(s,n,c)=>{num(s,'S');num(n,'N');num(c,'C');c=Math.max(0,Math.min(500,Math.round(c)));return Array.from({length:c},(_,i)=>s+i*n)}},
+  range:{cat:'Sets',name:'Range',nick:'Range',kw:'intervalle domaine',ins:[{n:'D',d:'Domaine : de 0 à D',def:1},{n:'N',d:'Nombre de divisions',def:10}],outs:[{n:'R',d:'Liste de N+1 nombres'}],
+    list:(d,n)=>{num(d,'D');num(n,'N');n=Math.max(1,Math.min(500,Math.round(n)));return Array.from({length:n+1},(_,i)=>i*d/n)}},
+  pt:{cat:'Vector',name:'Construct Point',nick:'Pt',kw:'point coordonnées',ins:[{n:'X',d:'Coordonnée X',def:0},{n:'Y',d:'Coordonnée Y',def:0},{n:'Z',d:'Coordonnée Z',def:0}],outs:[{n:'Pt',d:'Point'}],fn:(x,y,z)=>P(num(x,'X'),num(y,'Y'),num(z,'Z'))},
+  vec:{cat:'Vector',name:'Vector XYZ',nick:'Vec',kw:'vecteur direction',ins:[{n:'X',d:'Composante X',def:0},{n:'Y',d:'Composante Y',def:0},{n:'Z',d:'Composante Z',def:0}],outs:[{n:'V',d:'Vecteur'}],fn:(x,y,z)=>({t:'vec',x:num(x,'X'),y:num(y,'Y'),z:num(z,'Z')})},
+  ln:{cat:'Curve',name:'Line',nick:'Ln',kw:'ligne segment',ins:[{n:'A',d:'Point de départ'},{n:'B',d:'Point d’arrivée'}],outs:[{n:'L',d:'Ligne'}],fn:(a,b)=>({t:'ln',a:pnt(a,'A'),b:pnt(b,'B')})},
+  cir:{cat:'Curve',name:'Circle',nick:'Cir',kw:'cercle rond',ins:[{n:'P',d:'Centre (point)',def:O},{n:'R',d:'Rayon',def:1}],outs:[{n:'C',d:'Cercle'}],
+    fn:(p,r)=>{pnt(p,'P');num(r,'R');if(r<=0)throw new Error('Le rayon doit être supérieur à 0');return {t:'cir',c:p,r}}},
+  move:{cat:'Transform',name:'Move',nick:'Move',kw:'déplacer translation',ins:[{n:'G',d:'Géométrie à déplacer'},{n:'T',d:'Vecteur de déplacement',def:{t:'vec',x:0,y:0,z:10}}],outs:[{n:'G',d:'Géométrie déplacée'}],fn:(g,t)=>shift(g,vec(t,'T'))}
+};
+
+/* ---------- Formatage ---------- */
+const r3=v=>String(Math.round(v*1000)/1000);
+function fmt(v){
+  if(v==null) return '<null>';
+  if(isNum(v)) return r3(v);
+  if(v.t==='pt'||v.t==='vec') return `{${r3(v.x)}, ${r3(v.y)}, ${r3(v.z)}}`;
+  if(v.t==='cir') return `Circle (R:${r3(v.r)})`;
+  if(v.t==='ln') return `Line (L:${r3(Math.hypot(v.b.x-v.a.x,v.b.y-v.a.y,v.b.z-v.a.z))})`;
+  return String(v);
+}
+function summary(list){
+  if(!list) return 'Aucune donnée';
+  if(!list.length) return 'Liste vide';
+  const head=list.slice(0,4).map(fmt).join('\n');
+  return (list.length===1?'1 valeur':list.length+' valeurs')+'\n'+head+(list.length>4?'\n…':'');
+}
+
+/* ---------- Graphe ---------- */
+const byId=id=>G.nodes.find(n=>n.id===id);
+function addNode(type,x,y,p,id){
+  const n={id:id||('n'+nextId++),type,x,y,p:p||{}};
+  if(type==='slider') n.p=Object.assign({min:0,max:10,step:0.1,value:5,label:'Slider'},p||{});
+  G.nodes.push(n); buildNode(n); return n;
+}
+function removeNode(id){
+  G.nodes=G.nodes.filter(n=>n.id!==id);
+  G.wires=G.wires.filter(w=>w.from[0]!==id&&w.to[0]!==id);
+  els[id]?.remove(); delete els[id];
+  if(selected===id) selected=null;
+  solve();
+}
+function reaches(a,b){ // a atteint b en suivant les fils ?
+  if(a===b) return true;
+  return G.wires.some(w=>w.from[0]===a&&reaches(w.to[0],b));
+}
+function connect(from,to){
+  if(from[0]===to[0]||reaches(to[0],from[0])) return flash('Boucle impossible : Grasshopper ne calcule que dans un sens.');
+  G.wires=G.wires.filter(w=>!(w.to[0]===to[0]&&w.to[1]===to[1]));
+  G.wires.push({from,to}); solve();
+}
+function clearAll(){ G={nodes:[],wires:[]}; board.querySelectorAll('.node').forEach(e=>e.remove()); for(const k in els) delete els[k]; selected=null }
+function loadGraph(g){
+  clearAll();
+  g.n.forEach(([id,t,x,y,p])=>addNode(t,x,y,p,id));
+  g.w.forEach(s=>{const [a,b]=s.split('>'),[fa,fi]=a.split('.'),[ta,ti]=b.split('.');G.wires.push({from:[fa,+fi],to:[ta,+ti]})});
+  scroller.scrollTo(0,0); solve();
+}
+
+/* ---------- Résolution ---------- */
+function solve(){
+  const t0=performance.now(); results={};
+  const ev=node=>{
+    if(results[node.id]) return results[node.id];
+    const def=DEFS[node.type], r={outs:[],status:'ok',msg:''};
+    if(node.type==='slider'){ r.outs=[[node.p.value]] }
+    else{
+      const ins=def.ins.map((inp,i)=>{
+        const w=G.wires.find(w=>w.to[0]===node.id&&w.to[1]===i);
+        if(w) return ev(byId(w.from[0])).outs[w.from[1]]||[];
+        return inp.def!==undefined?[inp.def]:null;
+      });
+      r.ins=ins;
+      if(node.type==='panel'){ r.data=ins[0]; if(!ins[0]){r.status='warn';r.msg='Rien à afficher : reliez une sortie à ce Panel.'} }
+      else{
+        const miss=def.ins.filter((_,i)=>ins[i]===null).map(x=>x.n);
+        r.outs=def.outs.map(()=>[]);
+        if(miss.length){ r.status='warn'; r.msg=(miss.length>1?'Entrées manquantes : ':'Entrée manquante : ')+miss.join(', ') }
+        else if(ins.some(a=>!a.length)){ r.status='warn'; r.msg='Une entrée a reçu une liste vide.' }
+        else if(def.list){
+          try{ r.outs=[def.list(...ins.map(a=>a[0]))]; if(ins.some(a=>a.length>1)){r.status='warn';r.msg='Ici, seule la 1re valeur de chaque entrée est utilisée (le vrai Grasshopper créerait un arbre de données).'} }
+          catch(e){ r.status='err'; r.msg=e.message }
+        }else{
+          const L=Math.max(...ins.map(a=>a.length)), out=[]; let bad=0, m='';
+          for(let i=0;i<L;i++){
+            try{ out.push(def.fn(...ins.map(a=>a[Math.min(i,a.length-1)]))) }
+            catch(e){ out.push(null); bad++; m=e.message }
+          }
+          r.outs=[out];
+          if(bad){ r.status='err'; r.msg=(L>1?`${bad} élément${bad>1?'s':''} sur ${L} en erreur : `:'')+m }
+        }
+      }
+    }
+    return results[node.id]=r;
+  };
+  G.nodes.forEach(ev);
+  const ms=performance.now()-t0;
+  let warn=0, err=0;
+  G.nodes.forEach(n=>{
+    const el=els[n.id], r=results[n.id];
+    el.classList.toggle('warn',r.status==='warn'); el.classList.toggle('err',r.status==='err');
+    if(r.status==='warn') warn++; if(r.status==='err') err++;
+    el.querySelector('.balloon').textContent=r.msg;
+    if(n.type==='panel') el.querySelector('.pdata').textContent=r.data?('{0}\n'+r.data.map((v,i)=>`${i}  ${fmt(v)}`).join('\n')):'';
+    if(n.type==='slider') el.querySelector('output').textContent=n.p.value.toFixed(decimals(n.p.step));
+  });
+  $('#stat').textContent=`${G.nodes.length} composants · ${G.wires.length} fils · ${warn} avert. · ${err} erreur${err>1?'s':''} · résolu en ${ms.toFixed(2)} ms`;
+  drawWires(); drawPreview();
+}
+const decimals=s=>{const t=String(s);return t.includes('.')?t.split('.')[1].length:0};
+
+/* ---------- Nœuds ---------- */
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function buildNode(n){
+  const def=DEFS[n.type], el=document.createElement('div');
+  el.className='node t-'+n.type; el.dataset.id=n.id;
+  el.style.left=n.x+'px'; el.style.top=n.y+'px';
+  if(n.type==='slider'){
+    const p=n.p;
+    el.innerHTML=`<span class="slabel" title="${esc(p.label)}">${esc(p.label)}</span>
+      <input type="range" id="r-${n.id}" aria-label="${esc(p.label)}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.value}">
+      <output></output><button class="sopt" title="Réglages du curseur" aria-label="Réglages">⋯</button>
+      <div class="srange" hidden><label>min<input type="number" id="mn-${n.id}" value="${p.min}"></label><label>max<input type="number" id="mx-${n.id}" value="${p.max}"></label><label>pas<input type="number" id="st-${n.id}" value="${p.step}"></label></div>
+      <span class="port out" data-i="0"></span>`;
+    const rg=el.querySelector('input[type=range]');
+    rg.addEventListener('input',()=>{p.value=+rg.value; solve()});
+    el.querySelector('.sopt').addEventListener('click',()=>{const s=el.querySelector('.srange');s.hidden=!s.hidden;drawWires()});
+    el.querySelectorAll('.srange input').forEach(inp=>inp.addEventListener('change',()=>{
+      const [mn,mx,st]=[...el.querySelectorAll('.srange input')].map(i=>+i.value);
+      if(!(mx>mn)||!(st>0)) return flash('Réglage invalide : il faut min < max et un pas positif.');
+      Object.assign(p,{min:mn,max:mx,step:st}); p.value=Math.min(mx,Math.max(mn,p.value));
+      Object.assign(rg,{min:mn,max:mx,step:st}); rg.value=p.value; solve();
+    }));
+  }else if(n.type==='panel'){
+    el.innerHTML=`<span class="port in" data-i="0"></span><span class="ptitle">Panel</span><pre class="pdata"></pre>`;
+  }else{
+    el.innerHTML=`<div class="ins">${def.ins.map((x,i)=>`<div class="prow"><span class="port in" data-i="${i}"></span>${x.n}</div>`).join('')}</div>
+      <div class="core" title="${def.name}">${def.nick}</div>
+      <div class="outs">${def.outs.map((x,i)=>`<div class="prow">${x.n}<span class="port out" data-i="${i}"></span></div>`).join('')}</div>`;
+  }
+  el.insertAdjacentHTML('beforeend','<button class="del" aria-label="Supprimer le composant">×</button><div class="balloon"></div>');
+  board.appendChild(el); els[n.id]=el;
+}
+function select(id){
+  selected=id;
+  for(const k in els) els[k].classList.toggle('sel',k===id);
+  drawWires(); drawPreview();
+}
+
+/* ---------- Fils ---------- */
+function portPos(id,dir,i){
+  const el=els[id]?.querySelector(`.port.${dir}[data-i="${i}"]`); if(!el) return null;
+  const r=el.getBoundingClientRect(), b=board.getBoundingClientRect();
+  return {x:r.left+r.width/2-b.left,y:r.top+r.height/2-b.top};
+}
+const bez=(a,b)=>{const dx=Math.max(40,Math.abs(b.x-a.x)*.5);return `M${a.x},${a.y} C${a.x+dx},${a.y} ${b.x-dx},${b.y} ${b.x},${b.y}`};
+function drawWires(){
+  let h='';
+  G.wires.forEach((w,k)=>{
+    const a=portPos(w.from[0],'out',w.from[1]), b=portPos(w.to[0],'in',w.to[1]); if(!a||!b) return;
+    const len=(results[w.from[0]]?.outs[w.from[1]]||[]).length;
+    const cls=len===0?'empty':len>1?'list':'item', d=bez(a,b);
+    const s=selected&&(w.from[0]===selected||w.to[0]===selected)?' sel':'';
+    h+=`<g class="wire ${cls}${s}"><path class="hit" data-k="${k}" d="${d}"><title>Cliquer pour supprimer ce fil</title></path>${cls==='list'?`<path class="w2" d="${d}"/><path class="w3" d="${d}"/>`:`<path class="w1" d="${d}"/>`}</g>`;
+  });
+  if(drag&&drag.kind==='wire'){
+    const a=portPos(drag.from[0],'out',drag.from[1]), b0=board.getBoundingClientRect();
+    if(a) h+=`<path class="tmp" d="${bez(a,{x:drag.x-b0.left,y:drag.y-b0.top})}"/>`;
+  }
+  svg.innerHTML=h;
+}
+svg.addEventListener('click',e=>{const k=e.target.dataset?.k; if(k!=null){G.wires.splice(+k,1);solve()}});
+
+/* ---------- Interactions ---------- */
+board.addEventListener('pointerdown',e=>{
+  hideSearch();
+  const port=e.target.closest('.port'), nodeEl=e.target.closest('.node');
+  if(port){
+    e.preventDefault(); const id=nodeEl.dataset.id, i=+port.dataset.i;
+    if(port.classList.contains('out')) drag={kind:'wire',from:[id,i],x:e.clientX,y:e.clientY};
+    else{
+      const w=G.wires.find(w=>w.to[0]===id&&w.to[1]===i);
+      if(w){ G.wires=G.wires.filter(x=>x!==w); drag={kind:'wire',from:w.from,x:e.clientX,y:e.clientY}; solve() }
+    }
+    tip.hidden=true; drawWires(); return;
+  }
+  if(nodeEl){
+    select(nodeEl.dataset.id);
+    if(e.target.closest('input,button,.pdata,.srange')) return;
+    const n=byId(nodeEl.dataset.id);
+    drag={kind:'move',n,sx:e.clientX,sy:e.clientY,ox:n.x,oy:n.y}; nodeEl.style.cursor='grabbing'; return;
+  }
+  if(e.target===board||e.target===svg) select(null);
+});
+window.addEventListener('pointermove',e=>{
+  if(!drag) return;
+  if(drag.kind==='wire'){ drag.x=e.clientX; drag.y=e.clientY; drawWires() }
+  else{
+    const n=drag.n; n.x=Math.max(0,drag.ox+e.clientX-drag.sx); n.y=Math.max(0,drag.oy+e.clientY-drag.sy);
+    els[n.id].style.left=n.x+'px'; els[n.id].style.top=n.y+'px'; drawWires();
+  }
+});
+window.addEventListener('pointerup',e=>{
+  if(!drag) return;
+  const d=drag; drag=null;
+  if(d.kind==='wire'){
+    const t=document.elementFromPoint(e.clientX,e.clientY)?.closest('.port.in');
+    if(t) connect(d.from,[t.closest('.node').dataset.id,+t.dataset.i]); else drawWires();
+  }else els[d.n.id].style.cursor='';
+});
+board.addEventListener('click',e=>{const d=e.target.closest('.del'); if(d) removeNode(d.closest('.node').dataset.id)});
+document.addEventListener('keydown',e=>{
+  if((e.key==='Delete'||e.key==='Backspace')&&selected&&!e.target.closest('input,textarea')){ e.preventDefault(); removeNode(selected) }
+  if(e.key==='Escape') hideSearch();
+});
+
+/* Infobulles des entrées / sorties */
+board.addEventListener('pointerover',e=>{
+  const port=e.target.closest('.port'); if(!port||drag) return;
+  const nodeEl=port.closest('.node'), n=byId(nodeEl.dataset.id), def=DEFS[n.type], i=+port.dataset.i;
+  const isIn=port.classList.contains('in'), r=results[n.id]||{};
+  const spec=isIn?def.ins[i]:def.outs[i];
+  let data, extra='';
+  if(isIn){
+    data=n.type==='panel'?r.data:(r.ins?r.ins[i]:null);
+    const wired=G.wires.some(w=>w.to[0]===n.id&&w.to[1]===i);
+    extra=wired?'Reliée. Cliquez-glissez pour détacher le fil.':(spec.def!==undefined?'Non reliée : valeur par défaut.':'Non reliée et sans valeur par défaut.');
+  }else{ data=r.outs?r.outs[i]:null; extra='Glissez vers une entrée pour relier.' }
+  tip.innerHTML=`<b>${esc(spec.n||'Entrée')}</b> — ${esc(spec.d)}<br>${extra}<code>${esc(summary(data))}</code>`;
+  const pr=port.getBoundingClientRect();
+  tip.hidden=false;
+  const tw=tip.offsetWidth;
+  tip.style.left=Math.max(8,Math.min(innerWidth-tw-8,isIn?pr.left-tw-10:pr.right+10))+'px';
+  tip.style.top=Math.max(8,pr.top-10)+'px';
+});
+board.addEventListener('pointerout',e=>{ if(e.target.closest('.port')) tip.hidden=true });
+
+/* Palette */
+const pal=$('#pal'), cats={};
+Object.entries(DEFS).forEach(([k,d])=>(cats[d.cat]=cats[d.cat]||[]).push([k,d]));
+pal.innerHTML=Object.entries(cats).map(([c,l])=>`<div class="pg"><span>${c}</span>${l.map(([k,d])=>`<button data-t="${k}" title="${d.name}">${d.nick}</button>`).join('')}</div>`).join('');
+pal.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  const x=scroller.scrollLeft+scroller.clientWidth/2-80+Math.random()*60, y=scroller.scrollTop+scroller.clientHeight/2-40+Math.random()*60;
+  const n=addNode(b.dataset.t,Math.round(x),Math.round(y)); select(n.id); solve();
+});
+
+/* Recherche au double-clic, comme dans Grasshopper */
+const search=$('#search'), q=$('#q'), qres=$('#qres'); let spos=null;
+board.addEventListener('dblclick',e=>{
+  if(e.target!==board&&e.target!==svg) return;
+  const b=board.getBoundingClientRect(); spos={x:Math.round(e.clientX-b.left),y:Math.round(e.clientY-b.top)};
+  search.style.left=Math.min(innerWidth-260,e.clientX)+'px'; search.style.top=Math.min(innerHeight-280,e.clientY)+'px';
+  search.hidden=false; q.value=''; renderSearch(); q.focus();
+});
+function matches(){ const s=q.value.trim().toLowerCase(); return Object.entries(DEFS).filter(([k,d])=>!s||(d.name+' '+d.nick+' '+d.cat+' '+d.kw).toLowerCase().includes(s)).slice(0,8) }
+function renderSearch(){ qres.innerHTML=matches().map(([k,d],i)=>`<li data-t="${k}" class="${i?'':'on'}">${d.name}<small>${d.cat}</small></li>`).join('') }
+function pick(t){ const n=addNode(t,spos.x,spos.y); hideSearch(); select(n.id); solve() }
+function hideSearch(){ search.hidden=true }
+q.addEventListener('input',renderSearch);
+q.addEventListener('keydown',e=>{ if(e.key==='Enter'){const m=matches()[0]; if(m) pick(m[0])} });
+qres.addEventListener('click',e=>{const li=e.target.closest('li'); if(li) pick(li.dataset.t)});
+document.addEventListener('pointerdown',e=>{ if(!search.hidden&&!e.target.closest('.search')&&!e.target.closest('.board')) hideSearch() });
+
+function flash(m){ const s=$('#stat'); s.textContent=m; s.style.color='var(--err)'; setTimeout(()=>{s.style.color='';solve()},2200) }
+
+/* ---------- Aperçu (vue de dessus) ---------- */
+const cv=$('#view');
+function nice(x){const p=Math.pow(10,Math.floor(Math.log10(x))),f=x/p;return (f<1.5?1:f<3.5?2:f<7.5?5:10)*p}
+function drawPreview(){
+  const box=cv.parentElement.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+  if(!box.width||!box.height) return;
+  cv.width=box.width*dpr; cv.height=box.height*dpr;
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  const cs=getComputedStyle(document.documentElement), C=k=>cs.getPropertyValue(k).trim();
+  const W=box.width, H=box.height;
+  ctx.fillStyle=C('--view'); ctx.fillRect(0,0,W,H);
+  const items=[];
+  G.nodes.forEach(n=>{ if(n.type==='panel') return; (results[n.id]?.outs||[]).forEach(l=>l.forEach(g=>{ if(g&&typeof g==='object'&&g.t!=='vec') items.push({g,sel:n.id===selected}) })) });
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  const ext=(x,y)=>{x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y)};
+  items.forEach(({g})=>{ if(g.t==='pt') ext(g.x,g.y); if(g.t==='cir'){ext(g.c.x-g.r,g.c.y-g.r);ext(g.c.x+g.r,g.c.y+g.r)} if(g.t==='ln'){ext(g.a.x,g.a.y);ext(g.b.x,g.b.y)} });
+  if(!items.length){x0=-5;x1=5;y0=-5;y1=5}
+  let sx=Math.max(x1-x0,4), sy=Math.max(y1-y0,4); const mx=(x0+x1)/2, my=(y0+y1)/2;
+  const s=Math.min(W/(sx*1.3), H/(sy*1.3));
+  const X=x=>W/2+(x-mx)*s, Y=y=>H/2-(y-my)*s;
+  const step=nice(Math.max(W,H)/s/10);
+  const gx0=Math.floor((mx-W/2/s)/step)*step, gy0=Math.floor((my-H/2/s)/step)*step;
+  ctx.lineWidth=1;
+  for(let gx=gx0; X(gx)<=W; gx+=step){ ctx.strokeStyle=Math.round(gx/step)%5===0?C('--view-line2'):C('--view-line'); ctx.beginPath(); ctx.moveTo(Math.round(X(gx))+.5,0); ctx.lineTo(Math.round(X(gx))+.5,H); ctx.stroke() }
+  for(let gy=gy0; Y(gy)>=0; gy+=step){ ctx.strokeStyle=Math.round(gy/step)%5===0?C('--view-line2'):C('--view-line'); ctx.beginPath(); ctx.moveTo(0,Math.round(Y(gy))+.5); ctx.lineTo(W,Math.round(Y(gy))+.5); ctx.stroke() }
+  ctx.lineWidth=1.5;
+  ctx.strokeStyle=C('--axis-x'); ctx.beginPath(); ctx.moveTo(X(0),Y(0)); ctx.lineTo(W,Y(0)); ctx.stroke();
+  ctx.strokeStyle=C('--axis-y'); ctx.beginPath(); ctx.moveTo(X(0),Y(0)); ctx.lineTo(X(0),0); ctx.stroke();
+  items.sort((a,b)=>a.sel-b.sel).forEach(({g,sel})=>{
+    const col=sel?C('--sel'):C('--geo'); ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=sel?2.2:1.6;
+    if(g.t==='pt') ctx.fillRect(X(g.x)-3,Y(g.y)-3,6,6);
+    if(g.t==='cir'){ ctx.beginPath(); ctx.arc(X(g.c.x),Y(g.c.y),Math.max(.5,g.r*s),0,Math.PI*2); ctx.stroke() }
+    if(g.t==='ln'){ ctx.beginPath(); ctx.moveTo(X(g.a.x),Y(g.a.y)); ctx.lineTo(X(g.b.x),Y(g.b.y)); ctx.stroke() }
+  });
+  if(!items.length){ ctx.fillStyle=C('--muted'); ctx.font='13px '+C('--f-body'); ctx.textAlign='center'; ctx.fillText('Aucune géométrie pour l’instant',W/2,H/2-8); ctx.fillText('Les nombres seuls s’affichent dans un Panel',W/2,H/2+12) }
+  $('#vpinfo').textContent=`grille ${r3(step)} u · ${items.length} objet${items.length>1?'s':''}`;
+}
+new ResizeObserver(()=>drawPreview()).observe(cv.parentElement);
+new MutationObserver(()=>drawPreview()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',drawPreview);
+
+/* ---------- Leçons ---------- */
+const S=(id,x,y,label,value,min,max,step)=>[id,'slider',x,y,{label,value,min,max,step}];
+const c=t=>`<b class="c">${t}</b>`;
+const LESSONS=[
+ {title:'Le canevas se lit de gauche à droite',
+  body:`<p>Dans Grasshopper, on ne dessine pas : on écrit une <em>recette</em>. Chaque boîte est un composant. Il reçoit des données à gauche (ses entrées), les transforme, et sort un résultat à droite.</p>
+  <p>Les fils transportent les données. Dès qu’une valeur change, tout ce qui se trouve en aval est recalculé.</p>
+  <p>La couleur d’un composant indique son état :</p>
+  <div class="states"><div><span style="background:var(--node)"></span>gris : tout va bien</div><div><span style="background:var(--warn-bg)"></span>orange : il manque quelque chose</div><div><span style="background:var(--err-bg)"></span>rouge : le calcul a échoué</div></div>`,
+  tries:['Bougez les curseurs A et B : le Panel suit immédiatement.',`Cliquez sur le petit rond d’entrée B de ${c('A+B')} et relâchez dans le vide. Le fil est détaché, le composant passe à l’orange.`,'Reliez à nouveau la sortie du curseur B à l’entrée B.'],
+  graph:{n:[S('a',30,40,'A',3,0,10,1),S('b',30,150,'B',4,0,10,1),['add','add',330,82],['p','panel',470,70]],w:['a.0>add.0','b.0>add.1','add.0>p.0']}},
+ {title:'Des nombres aux points',
+  body:`<p>${c('Construct Point')} assemble trois nombres X, Y et Z en un point.</p>
+  <p>Z n’est pas relié, et pourtant le composant fonctionne : beaucoup d’entrées ont une valeur par défaut. Survolez une entrée pour la voir, avec les données qu’elle reçoit.</p>
+  <p>À droite, la vue de dessus joue le rôle de Rhino. La géométrie rouge est seulement prévisualisée : elle n’existe pas encore dans le fichier Rhino.</p>`,
+  tries:[`Cliquez sur ${c('Pt')} : sa géométrie passe en vert dans l’aperçu.`,'Ajoutez un Number Slider et branchez-le sur Z. En vue de dessus, rien ne bouge, et c’est normal.'],
+  graph:{n:[S('x',30,40,'X',2,-10,10,0.1),S('y',30,140,'Y',3,-10,10,0.1),['pt','pt',330,58],['p','panel',470,50]],w:['x.0>pt.0','y.0>pt.1','pt.0>p.0']}},
+ {title:'Une géométrie qui dépend d’une autre',
+  body:`<p>${c('Circle')} a besoin d’un centre P et d’un rayon R. Ici, le centre vient du point construit juste avant.</p>
+  <p>Déplacez X : le cercle suit, parce qu’il est <em>relié</em> au point. C’est le cœur de la modélisation paramétrique : on décrit des relations, pas des formes figées.</p>`,
+  tries:['Bougez X, Y et le rayon.',`Double-cliquez sur le fond du canevas, tapez « line » et créez un ${c('Line')}. Reliez le point à A, puis construisez un second point pour B.`,`Débranchez le rayon : ${c('Cir')} reprend sa valeur par défaut, 1.`],
+  graph:{n:[S('x',30,30,'X',-2,-10,10,0.1),S('y',30,125,'Y',1,-10,10,0.1),S('r',30,230,'Rayon',1.5,0.1,5,0.1),['pt','pt',330,40],['cir','cir',470,150]],w:['x.0>pt.0','y.0>pt.1','pt.0>cir.0','r.0>cir.1']}},
+ {title:'Une liste au lieu d’une valeur',
+  body:`<p>${c('Series')} produit une liste : départ S, pas N, nombre de valeurs C. Branchée sur X de ${c('Pt')}, elle fait tourner le composant une fois par valeur. On obtient autant de points que d’éléments dans la liste.</p>
+  <p>Regardez les fils : un trait simple transporte une seule valeur, un trait double transporte une liste.</p>
+  <p>Le Panel affiche <code>{0}</code> en tête. C’est le chemin de la branche, la première notion des arbres de données. Viennent ensuite les index 0, 1, 2…</p>`,
+  tries:['Passez le nombre à 20 et le pas à 0,5.',`Branchez aussi la sortie de ${c('Series')} sur Y : les points s’alignent en diagonale.`],
+  graph:{n:[S('st',30,40,'Pas',1,0.1,3,0.1),S('ct',30,130,'Nombre',8,1,30,1),['ser','series',330,60],['pt','pt',490,60],['cir','cir',640,110],S('r',330,240,'Rayon',0.35,0.1,2,0.05),['p','panel',640,230]],w:['st.0>ser.1','ct.0>ser.2','ser.0>pt.0','pt.0>cir.0','r.0>cir.1','ser.0>p.0']}},
+ {title:'Quand les listes n’ont pas la même longueur',
+  body:`<p>Par défaut, Grasshopper applique la règle de la <em>liste la plus longue</em> (Longest List). Le composant tourne autant de fois que la liste la plus longue, et les listes plus courtes répètent leur dernier élément.</p>
+  <p>Ici, X reçoit 6 valeurs et Y une seule, répétée 6 fois. Les rayons ne sont que 3 : les cercles 4, 5 et 6 reprennent le dernier rayon.</p>
+  <p>Dans le vrai Grasshopper, les composants ${c('Shortest List')} et ${c('Cross Reference')} permettent d’appliquer d’autres règles.</p>`,
+  tries:['Mettez « Nombre rayons » à 6 : chaque cercle reçoit son propre rayon.','Mettez-le à 1 : tous les cercles ont le même rayon.','Mettez « Nombre X » à 2 avec 6 rayons : qui l’emporte ?'],
+  graph:{n:[S('cx',30,50,'Nombre X',6,1,12,1),S('y',30,150,'Y',0,-5,5,0.1),['ser1','series',330,40],['pt','pt',500,70],S('r0',30,260,'Départ R',0.2,0.05,2,0.05),S('rs',30,350,'Pas R',0.15,0.05,1,0.05),S('rc',30,440,'Nombre rayons',3,1,12,1),['ser2','series',330,320],['cir','cir',680,170],['p','panel',680,320]],w:['cx.0>ser1.2','ser1.0>pt.0','y.0>pt.1','r0.0>ser2.0','rs.0>ser2.1','rc.0>ser2.2','pt.0>cir.0','ser2.0>cir.1','ser2.0>p.0']}},
+ {title:'Une première définition paramétrique',
+  body:`<p>On enchaîne des opérations sur une liste entière : ${c('Series')} → × fréquence → ${c('Sin')} → × amplitude → Y.</p>
+  <p>Cinq curseurs pilotent maintenant des dizaines de cercles. Un tel enchaînement s’appelle une <em>définition</em>, et c’est ce qu’on enregistre dans un fichier .gh.</p>
+  <p>Le principe reste le même à toutes les échelles : quelques paramètres en entrée, une logique au milieu, de la géométrie en sortie.</p>`,
+  tries:['Pas 0,1 et nombre 80 : la courbe devient plus fine.',`Reliez la sortie du second ${c('A×B')} au rayon R du cercle. Une partie des cercles passe en erreur : un rayon négatif n’existe pas. Le composant devient rouge, mais les éléments valides sont conservés.`,`Insérez un ${c('Move')} après ${c('Cir')}, avec un ${c('Vec')} sur T.`],
+  graph:{n:[S('st',30,30,'Pas',0.25,0.05,1,0.05),S('ct',30,120,'Nombre',40,2,120,1),['ser','series',330,40],S('f',30,230,'Fréquence',1,0.1,3,0.1),['m1','mul',500,150],['sin','sin',640,160],S('a',30,330,'Amplitude',2,0,5,0.1),['m2','mul',770,210],['pt','pt',920,70],S('r',30,430,'Rayon',0.25,0.05,1,0.05),['cir','cir',1080,170]],
+   w:['st.0>ser.1','ct.0>ser.2','ser.0>m1.0','f.0>m1.1','m1.0>sin.0','sin.0>m2.0','a.0>m2.1','ser.0>pt.0','m2.0>pt.1','pt.0>cir.0','r.0>cir.1']}},
+ {title:'Passer au vrai Grasshopper',
+  body:`<p>Vous avez vu l’essentiel : flux de gauche à droite, entrées par défaut, listes, règle de correspondance, états des composants. Voici ce qui change dans Rhino.</p>
+  <p><strong>Bake.</strong> Clic droit sur un composant, puis Bake : la géométrie prévisualisée devient de vrais objets Rhino. Sans cette étape, rien n’est écrit dans le fichier .3dm.</p>
+  <p><strong>Arbres de données.</strong> Une liste de listes, rangée par chemins comme {0;0} ou {0;1}. C’est la marche suivante, et la plus importante.</p>
+  <p><strong>Les mêmes repères.</strong> Les onglets portent les mêmes noms qu’ici (Params, Maths, Sets, Vector, Curve, Transform), et le double-clic sur le canevas ouvre aussi la recherche.</p>`,
+  tries:[`Refaites la leçon 6 dans Grasshopper, de mémoire.`,`Composants à découvrir ensuite : ${c('Divide Curve')}, ${c('Graph Mapper')}, ${c('Distance')} (pour les attracteurs), ${c('Graft')} et ${c('Flatten')}.`],
+  graph:null}
+];
+let cur=0; const seen=new Set();
+function renderLesson(load){
+  const L=LESSONS[cur]; seen.add(cur);
+  if(load&&L.graph) loadGraph(L.graph);
+  $('#steps').innerHTML=LESSONS.map((l,i)=>`<button class="${i===cur?'on':seen.has(i)?'done':''}" data-i="${i}" title="${esc(l.title)}" aria-label="Leçon ${i+1} : ${esc(l.title)}">${i+1}</button>`).join('');
+  $('#lesson').innerHTML=`<p class="kicker">Leçon ${cur+1} sur ${LESSONS.length}</p><h2>${L.title}</h2>${L.body}
+    <div class="try"><h3>À essayer</h3><ul>${L.tries.map(t=>`<li>${t}</li>`).join('')}</ul></div>
+    <div class="lnav"><button class="btn" id="prev" ${cur===0?'disabled':''}>Précédente</button>
+    ${L.graph?'<button class="btn" id="reload">Recharger l’exemple</button>':''}
+    <button class="btn pri" id="next" ${cur===LESSONS.length-1?'disabled':''}>Suivante</button></div>`;
+  $('#prev').onclick=()=>{cur--;renderLesson(true)};
+  $('#next').onclick=()=>{cur++;renderLesson(true)};
+  if($('#reload')) $('#reload').onclick=()=>loadGraph(L.graph);
+  try{localStorage.setItem('gh-lesson',cur)}catch(e){}
+}
+$('#steps').addEventListener('click',e=>{const b=e.target.closest('button'); if(b){cur=+b.dataset.i; renderLesson(true)}});
+try{const s=+localStorage.getItem('gh-lesson'); if(s>=0&&s<LESSONS.length) cur=s}catch(e){}
+if(!LESSONS[cur].graph) loadGraph(LESSONS[5].graph);
+renderLesson(true);
+if(document.fonts) document.fonts.ready.then(()=>drawWires());
+})();
+</script>
+</body>
+</html>
